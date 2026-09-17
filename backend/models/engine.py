@@ -1,4 +1,4 @@
-"""Orchestrator: run baseline Treasury NOM vs One Nation policy shock."""
+"""Orchestrator: current NOM vs Home Affairs (Burke Sep 2026) vs One Nation."""
 
 from __future__ import annotations
 
@@ -21,39 +21,71 @@ from models.macro import (
 from models.sectors import SectoralModel
 
 
-def nom_path(years: np.ndarray, cap: float | None, cal: Calibration,
-             near: float, long_run: float) -> np.ndarray:
-    """Return the NOM *flow applied between t and t+1* for each year in `years`.
+def scenario_nom(
+    years: np.ndarray,
+    scenario: str,
+    *,
+    current_nom: float,
+    home_affairs_fy: float,
+    home_affairs_long: float,
+    one_nation_cap: float,
+    announce_year: int = 2026,
+) -> np.ndarray:
+    """Calendar-year NOM flow applied between t and t+1.
 
-    The last year has no subsequent step; its path value is unused.
-    Baseline: linear glide from `near` to `long_run` over three years.
-    Policy: a hard cap for every year.
+    * ``current`` — ABS status quo (292.1k in the year to March 2026), held.
+    * ``home_affairs`` — Burke NPC 17 Sep 2026: 245k in 2026, 225k from 2027.
+    * ``one_nation`` — 130k cap from the announcement year.
+    All scenarios share the observed current rate through the year before
+    the announcement so the 2025 jump-off is identical.
     """
     out = np.zeros(len(years), dtype=float)
     for i, y in enumerate(years):
-        if cap is not None:
-            out[i] = cap
-            continue
-        t = int(y) - cal.start_year
-        if t <= 0:
-            out[i] = near
-        elif t >= 3:
-            out[i] = long_run
+        year = int(y)
+        if scenario == "current" or year < announce_year:
+            out[i] = current_nom
+        elif scenario == "home_affairs":
+            out[i] = home_affairs_fy if year == announce_year else home_affairs_long
+        elif scenario == "one_nation":
+            out[i] = one_nation_cap
         else:
-            out[i] = near + (long_run - near) * (t / 3.0)
+            raise ValueError(f"unknown NOM scenario: {scenario}")
     return out
 
 
-def student_share_path(years: np.ndarray, policy: bool, cal: Calibration,
-                       policy_student_share: float) -> np.ndarray:
-    if policy:
-        return np.full(len(years), policy_student_share, dtype=float)
-    # Baseline: student share eases slightly as NOM normalises
+def scenario_student_share(
+    years: np.ndarray,
+    scenario: str,
+    *,
+    current_share: float,
+    home_affairs_share: float,
+    one_nation_share: float,
+    announce_year: int = 2026,
+) -> np.ndarray:
     out = np.zeros(len(years), dtype=float)
     for i, y in enumerate(years):
-        t = int(y) - cal.start_year
-        out[i] = cal.baseline_student_share * (1.0 - 0.04 * min(t, 5) / 5.0)
+        year = int(y)
+        if scenario == "current" or year < announce_year:
+            out[i] = current_share
+        elif scenario == "home_affairs":
+            out[i] = home_affairs_share
+        elif scenario == "one_nation":
+            out[i] = one_nation_share
+        else:
+            raise ValueError(f"unknown NOM scenario: {scenario}")
     return out
+
+
+def nom_path(years: np.ndarray, cap: float | None, cal: Calibration,
+             near: float, long_run: float) -> np.ndarray:
+    """Legacy helper used by older tests: glide or a hard cap."""
+    if cap is not None:
+        return scenario_nom(
+            years, "one_nation",
+            current_nom=near, home_affairs_fy=near, home_affairs_long=long_run,
+            one_nation_cap=cap, announce_year=int(years[0]),
+        )
+    return np.full(len(years), long_run, dtype=float)
 
 
 @dataclass
@@ -203,8 +235,8 @@ class SimulationEngine:
     def run_scenario(
         self,
         *,
-        nom_cap: float | None,
-        student_share_policy: float,
+        noms: np.ndarray,
+        student_shares: np.ndarray,
         sigma: float,
         sigma_L: float,
         alpha: float,
@@ -214,17 +246,13 @@ class SimulationEngine:
         lam: float,
         housing_supply_elasticity: float,
         income_elasticity: float,
-        baseline_nom_near: float,
-        baseline_nom_long: float,
+        skill_priority_tilt: float = 0.0,
         start_state: DemographicState | None = None,
     ) -> list[YearRecord]:
         cal = self.cal
         years = np.arange(cal.start_year, cal.start_year + cal.horizon_years)
-        noms = nom_path(years, nom_cap, cal, baseline_nom_near, baseline_nom_long)
-        shares = student_share_path(
-            years, policy=nom_cap is not None, cal=cal,
-            policy_student_share=student_share_policy,
-        )
+        if len(noms) != len(years) or len(student_shares) != len(years):
+            raise ValueError("NOM and student-share paths must match the horizon")
 
         state = (start_state or self.demo.initial_state()).copy()
         emp_scale = self._employment_scale(state)
@@ -252,6 +280,7 @@ class SimulationEngine:
             cal,
             housing_supply_elasticity=housing_supply_elasticity,
             income_elasticity=income_elasticity,
+            skill_priority_tilt=skill_priority_tilt,
         )
         fiscal = FiscalModel(cal)
 
@@ -265,7 +294,6 @@ class SimulationEngine:
             ld, lm, _pr = self.demo.labour_supply(state)
             ld *= emp_scale
             lm *= emp_scale
-            # Overlay the employment-scaled labour onto metrics for reporting
             m = prev_metrics
             m.labour_native = ld
             m.labour_migrant = lm
@@ -288,9 +316,8 @@ class SimulationEngine:
             fis_s = fiscal.evaluate(int(year), state, macro_s.y, macro_s.wage_domestic,
                                     macro_s.wage_migrant, ld, lm)
             rec = _record(m, macro_s, sec_s, fis_s)
-            # NOM reported on a year is the flow that will arrive over the year
-            rec.nom = float(noms[i]) if i < len(years) - 1 else float(noms[i])
-            rec.student_inflow = rec.nom * float(shares[i])
+            rec.nom = float(noms[i])
+            rec.student_inflow = rec.nom * float(student_shares[i])
             records.append(rec)
 
             prev_pop = pop
@@ -300,13 +327,13 @@ class SimulationEngine:
             if i == len(years) - 1:
                 break
             state, prev_metrics = self.demo.step(
-                state, nom=float(noms[i]), student_share=float(shares[i])
+                state, nom=float(noms[i]), student_share=float(student_shares[i])
             )
 
         return records
 
     def run_pair(self, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Run Treasury baseline and One Nation shock with shared parameters."""
+        """Run current NOM, Home Affairs (Burke), and One Nation from one jump-off."""
         o = overrides or {}
         cal = self.cal
         sigma = float(o.get("sigma", cal.sigma))
@@ -318,13 +345,28 @@ class SimulationEngine:
         lam = float(o.get("capital_adjust_lambda", cal.capital_adjust_lambda))
         hs = float(o.get("housing_supply_elasticity", cal.housing_supply_elasticity))
         eh = float(o.get("housing_demand_income_elasticity", cal.housing_demand_income_elasticity))
-        near = float(o.get("baseline_nom_near", cal.baseline_nom_near_term))
-        long_run = float(o.get("baseline_nom", cal.baseline_nom_long_run))
+        current_nom = float(o.get("current_nom", cal.current_nom))
+        ha_fy = float(o.get("home_affairs_fy_nom", cal.home_affairs_fy_nom))
+        ha_long = float(o.get("home_affairs_long_run_nom", cal.home_affairs_long_run_nom))
         nom_cap = float(o.get("nom_cap", cal.policy_nom_cap))
-        pol_stu = float(o.get("policy_student_share", cal.policy_student_share))
+        current_stu = float(o.get("current_student_share", cal.current_student_share))
+        ha_stu = float(o.get("home_affairs_student_share", cal.home_affairs_student_share))
+        on_stu = float(o.get("policy_student_share", cal.policy_student_share))
+        ha_tilt = float(o.get("home_affairs_skill_tilt", 0.85))
 
+        years = np.arange(cal.start_year, cal.start_year + cal.horizon_years)
+        nom_kw = dict(
+            current_nom=current_nom,
+            home_affairs_fy=ha_fy,
+            home_affairs_long=ha_long,
+            one_nation_cap=nom_cap,
+        )
+        share_kw = dict(
+            current_share=current_stu,
+            home_affairs_share=ha_stu,
+            one_nation_share=on_stu,
+        )
         common = dict(
-            student_share_policy=pol_stu,
             sigma=sigma,
             sigma_L=sigma_L,
             alpha=alpha,
@@ -334,15 +376,35 @@ class SimulationEngine:
             lam=lam,
             housing_supply_elasticity=hs,
             income_elasticity=eh,
-            baseline_nom_near=near,
-            baseline_nom_long=long_run,
         )
         start = self.demo.initial_state()
-        baseline = self.run_scenario(nom_cap=None, start_state=start, **common)
-        policy = self.run_scenario(nom_cap=nom_cap, start_state=start, **common)
+        current = self.run_scenario(
+            noms=scenario_nom(years, "current", **nom_kw),
+            student_shares=scenario_student_share(years, "current", **share_kw),
+            skill_priority_tilt=0.0,
+            start_state=start,
+            **common,
+        )
+        home_affairs = self.run_scenario(
+            noms=scenario_nom(years, "home_affairs", **nom_kw),
+            student_shares=scenario_student_share(years, "home_affairs", **share_kw),
+            skill_priority_tilt=ha_tilt,
+            start_state=start,
+            **common,
+        )
+        one_nation = self.run_scenario(
+            noms=scenario_nom(years, "one_nation", **nom_kw),
+            student_shares=scenario_student_share(years, "one_nation", **share_kw),
+            skill_priority_tilt=0.0,
+            start_state=start,
+            **common,
+        )
         return {
-            "baseline": baseline,
-            "policy": policy,
+            "current": current,
+            "home_affairs": home_affairs,
+            "one_nation": one_nation,
+            "baseline": current,
+            "policy": home_affairs,
             "parameters": {
                 "sigma": sigma,
                 "sigma_L": sigma_L,
@@ -353,10 +415,14 @@ class SimulationEngine:
                 "capital_adjust_lambda": lam,
                 "housing_supply_elasticity": hs,
                 "housing_demand_income_elasticity": eh,
-                "baseline_nom_near": near,
-                "baseline_nom_long": long_run,
+                "current_nom": current_nom,
+                "home_affairs_fy_nom": ha_fy,
+                "home_affairs_long_run_nom": ha_long,
                 "nom_cap": nom_cap,
-                "policy_student_share": pol_stu,
+                "current_student_share": current_stu,
+                "home_affairs_student_share": ha_stu,
+                "policy_student_share": on_stu,
+                "home_affairs_skill_tilt": ha_tilt,
                 "start_year": cal.start_year,
                 "end_year": cal.start_year + cal.horizon_years - 1,
             },

@@ -16,13 +16,16 @@ from schemas import (
 )
 
 NOTES = (
-    "Stylised 2025–2050 projection using a cohort-component demographic "
-    "engine, nested CES production, a four-sector labour block, and a "
-    "Commonwealth/State fiscal module.  Calibration matches ABS / Treasury / "
-    "AIHW orders of magnitude.  Baseline NOM follows a Treasury-style glide "
-    "from ~255k to a 235k long run; the policy scenario caps net overseas "
-    "migration and scales down the student/temporary share.  New migrants "
-    "face an 8-year wait for Age Pension and other personal transfers."
+    "Stylised 2025–2050 projection.  Current NOM holds the ABS print of 292,100 "
+    "(year to March 2026).  The Home Affairs scenario implements Tony Burke’s "
+    "17 September 2026 National Press Club package: Budget NOM treated as a "
+    "target (245,000 in 2026–27, 225,000 from 2027–28), a working-holiday "
+    "ballot (45,000 second-year / 5,000 third-year places), limits on student "
+    "dependants and visa-hopping, overstayer compliance, and a skilled-list "
+    "tilt toward construction, healthcare, education, enforcement and primary "
+    "industries.  One Nation remains a 130,000 net cap with a deeper student "
+    "cut.  New migrants face an 8-year wait for Age Pension and other personal "
+    "transfers."
 )
 
 app = FastAPI(
@@ -47,21 +50,34 @@ def _run(req: SimulationRequest) -> SimulationResponse:
     cal = Calibration()
     engine = SimulationEngine(cal)
     raw = engine.run_pair(req.model_dump())
-    b_dicts = records_to_dicts(raw["baseline"])
-    p_dicts = records_to_dicts(raw["policy"])
-    d10 = horizon_delta(raw["baseline"], raw["policy"], 10)
-    d25 = horizon_delta(raw["baseline"], raw["policy"], 25)
+    current = records_to_dicts(raw["current"])
+    home_affairs = records_to_dicts(raw["home_affairs"])
+    one_nation = records_to_dicts(raw["one_nation"])
     return SimulationResponse(
-        baseline=ScenarioSeries(
-            name="Treasury baseline",
-            series=[YearPoint.model_validate(row) for row in b_dicts],
+        current=ScenarioSeries(
+            name="Current NOM (ABS 292k)",
+            series=[YearPoint.model_validate(row) for row in current],
         ),
-        policy=ScenarioSeries(
-            name="One Nation shock",
-            series=[YearPoint.model_validate(row) for row in p_dicts],
+        home_affairs=ScenarioSeries(
+            name="Home Affairs (Burke Sep 2026)",
+            series=[YearPoint.model_validate(row) for row in home_affairs],
         ),
-        deltas_10y=HorizonDelta.model_validate(d10),
-        deltas_25y=HorizonDelta.model_validate(d25),
+        one_nation=ScenarioSeries(
+            name="One Nation 130k cap",
+            series=[YearPoint.model_validate(row) for row in one_nation],
+        ),
+        ha_deltas_10y=HorizonDelta.model_validate(
+            horizon_delta(raw["current"], raw["home_affairs"], 10)
+        ),
+        ha_deltas_25y=HorizonDelta.model_validate(
+            horizon_delta(raw["current"], raw["home_affairs"], 25)
+        ),
+        on_deltas_10y=HorizonDelta.model_validate(
+            horizon_delta(raw["current"], raw["one_nation"], 10)
+        ),
+        on_deltas_25y=HorizonDelta.model_validate(
+            horizon_delta(raw["current"], raw["one_nation"], 25)
+        ),
         parameters=raw["parameters"],
         notes=NOTES,
     )

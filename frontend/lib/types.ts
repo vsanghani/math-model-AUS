@@ -1,7 +1,10 @@
 export type SimulationParams = {
   nom_cap: number;
-  baseline_nom: number;
-  baseline_nom_near: number;
+  current_nom: number;
+  home_affairs_fy_nom: number;
+  home_affairs_long_run_nom: number;
+  home_affairs_student_share: number;
+  home_affairs_skill_tilt: number;
   sigma: number;
   sigma_L: number;
   alpha: number;
@@ -63,19 +66,30 @@ export type HorizonDelta = {
   population: number;
 };
 
+export type ScenarioSeries = {
+  name: string;
+  series: YearPoint[];
+};
+
 export type SimulationResponse = {
-  baseline: { name: string; series: YearPoint[] };
-  policy: { name: string; series: YearPoint[] };
-  deltas_10y: HorizonDelta;
-  deltas_25y: HorizonDelta;
+  current: ScenarioSeries;
+  home_affairs: ScenarioSeries;
+  one_nation: ScenarioSeries;
+  ha_deltas_10y: HorizonDelta;
+  ha_deltas_25y: HorizonDelta;
+  on_deltas_10y: HorizonDelta;
+  on_deltas_25y: HorizonDelta;
   parameters: Record<string, number>;
   notes: string;
 };
 
 export const DEFAULT_PARAMS: SimulationParams = {
   nom_cap: 130_000,
-  baseline_nom: 235_000,
-  baseline_nom_near: 255_000,
+  current_nom: 292_100,
+  home_affairs_fy_nom: 245_000,
+  home_affairs_long_run_nom: 225_000,
+  home_affairs_student_share: 0.27,
+  home_affairs_skill_tilt: 0.85,
   sigma: 0.9,
   sigma_L: 5.0,
   alpha: 0.38,

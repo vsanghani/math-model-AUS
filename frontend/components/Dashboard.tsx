@@ -49,9 +49,8 @@ export function Dashboard() {
   }, [params, run]);
 
   const subtitle = useMemo(() => {
-    const cap = Math.round(params.nom_cap / 1000);
-    return `Treasury NOM glide (~255k to 235k) versus a ${cap}k net cap with a scaled-down student/temporary intake. Horizon 2025–2050.`;
-  }, [params.nom_cap]);
+    return `Current ABS NOM (${Math.round(params.current_nom / 1000)}k) versus Home Affairs targets of ${Math.round(params.home_affairs_fy_nom / 1000)}k in 2026–27 and ${Math.round(params.home_affairs_long_run_nom / 1000)}k from 2027–28. One Nation remains a ${Math.round(params.nom_cap / 1000)}k cap.`;
+  }, [params.current_nom, params.home_affairs_fy_nom, params.home_affairs_long_run_nom, params.nom_cap]);
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -62,7 +61,7 @@ export function Dashboard() {
               Australia · macroeconomic projection
             </p>
             <h1 className="mt-2 font-serif text-3xl leading-tight text-navy md:text-[2.15rem]">
-              One Nation migration cap, 2025–2050
+              Home Affairs migration package, 2025–2050
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">{subtitle}</p>
           </div>
@@ -93,14 +92,28 @@ export function Dashboard() {
 
           {data ? (
             <>
+              <section className="border border-stone-300 bg-white/40 px-5 py-4">
+                <h2 className="font-serif text-lg text-navy">Burke, 17 September 2026</h2>
+                <p className="mt-1 text-[12px] leading-relaxed text-stone-600">
+                  National Press Club package. Budget NOM is now a target, not a forecast.
+                  Composition is tighter on temporary visas even though the cut is milder than One Nation.
+                </p>
+                <ul className="mt-3 grid gap-2 text-[12px] leading-relaxed text-stone-700 sm:grid-cols-2">
+                  <li>NOM 245,000 in 2026–27, then 225,000 a year (from ABS 292,100).</li>
+                  <li>Working-holiday ballot: 45,000 second-year and 5,000 third-year places (from 57,000 / 31,000).</li>
+                  <li>Student dependants restricted; visa-hopping curtailed.</li>
+                  <li>Overstayer detention and removals; visitor visas “no further stay”.</li>
+                  <li>Skilled list priority: construction, health, education, enforcement, defence, agriculture.</li>
+                  <li>Delivered by ministerial direction after Coalition talks collapsed.</li>
+                </ul>
+              </section>
               <MetricCards data={data} />
               <ComparisonCharts data={data} />
               <p className="max-w-4xl text-[12px] leading-relaxed text-stone-500">
-                {data.notes} Sliders re-solve both scenarios from a shared 2025 jump-off.
+                {data.notes} Sliders re-solve all three scenarios from a shared 2025 jump-off.
+                Home Affairs NOM steps down in 2026 and 2027; current NOM is held at the latest ABS print.
                 Cumulative GDP and fiscal figures are undiscounted sums of annual real
-                2025-dollar flows. Capital deepening is the endogenous response of{" "}
-                <span className="font-mono">K/L</span> when labour growth slows and the
-                capital stock adjusts only partially toward its rental first-order condition.
+                2025-dollar flows.
               </p>
             </>
           ) : (

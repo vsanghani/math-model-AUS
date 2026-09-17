@@ -14,11 +14,29 @@ type SliderSpec = {
 
 const SLIDERS: SliderSpec[] = [
   {
-    key: "nom_cap",
-    label: "Policy NOM cap",
-    hint: "Net overseas migration, persons / year",
-    min: 50_000,
-    max: 250_000,
+    key: "current_nom",
+    label: "Current NOM (ABS)",
+    hint: "Year to March 2026, held as status quo",
+    min: 200_000,
+    max: 350_000,
+    step: 5_000,
+    format: (v) => `${Math.round(v / 1000)}k`,
+  },
+  {
+    key: "home_affairs_fy_nom",
+    label: "Home Affairs 2026–27",
+    hint: "Burke target for this financial year",
+    min: 180_000,
+    max: 300_000,
+    step: 5_000,
+    format: (v) => `${Math.round(v / 1000)}k`,
+  },
+  {
+    key: "home_affairs_long_run_nom",
+    label: "Home Affairs from 2027–28",
+    hint: "Ongoing Budget NOM target",
+    min: 150_000,
+    max: 280_000,
     step: 5_000,
     format: (v) => `${Math.round(v / 1000)}k`,
   },
@@ -63,8 +81,8 @@ export function Controls({
       <div>
         <h2 className="font-serif text-lg text-navy">Policy levers</h2>
         <p className="mt-1 text-[12px] leading-relaxed text-stone-600">
-          Baseline NOM is held at the Treasury glide. Only the shock scenario
-          and the shared production / housing elasticities move.
+          Status quo holds the current ABS NOM. Home Affairs follows Burke’s
+          17 Sep 2026 targets; elasticities are shared across scenarios.
         </p>
       </div>
       {SLIDERS.map((spec) => {
@@ -92,20 +110,20 @@ export function Controls({
       })}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-stone-300 pt-4 font-mono text-[10px] uppercase tracking-wide text-stone-500">
         <div>
-          <dt>σ (K–L)</dt>
-          <dd className="text-ink">{params.sigma.toFixed(2)}</dd>
-        </div>
-        <div>
-          <dt>α capital</dt>
-          <dd className="text-ink">{params.alpha.toFixed(2)}</dd>
-        </div>
-        <div>
-          <dt>Baseline NOM</dt>
-          <dd className="text-ink">{Math.round(params.baseline_nom / 1000)}k</dd>
+          <dt>WHM ballot</dt>
+          <dd className="text-ink">45k / 5k</dd>
         </div>
         <div>
           <dt>Student share</dt>
-          <dd className="text-ink">{(params.policy_student_share * 100).toFixed(0)}%</dd>
+          <dd className="text-ink">{(params.home_affairs_student_share * 100).toFixed(0)}%</dd>
+        </div>
+        <div>
+          <dt>Skill tilt</dt>
+          <dd className="text-ink">{params.home_affairs_skill_tilt.toFixed(2)}</dd>
+        </div>
+        <div>
+          <dt>One Nation cap</dt>
+          <dd className="text-ink">{Math.round(params.nom_cap / 1000)}k</dd>
         </div>
       </dl>
     </div>

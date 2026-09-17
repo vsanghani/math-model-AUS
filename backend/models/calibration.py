@@ -54,11 +54,19 @@ class Calibration:
     sex_ratio_at_birth: float = 1.055  # male / female
     e0_male: float = 81.2
     e0_female: float = 85.3
-    baseline_nom_long_run: float = 235_000.0
-    baseline_nom_near_term: float = 255_000.0
-    policy_nom_cap: float = 130_000.0
-    baseline_student_share: float = 0.34
+    # ABS NOM, year to March 2026 (status quo that overshot the Budget forecast)
+    current_nom: float = 292_100.0
+    # Home Affairs NPC, 17 Sep 2026: Budget NOM treated as a target
+    home_affairs_fy_nom: float = 245_000.0  # 2026-27
+    home_affairs_long_run_nom: float = 225_000.0  # 2027-28 onward
+    policy_nom_cap: float = 130_000.0  # One Nation
+    current_student_share: float = 0.34
+    home_affairs_student_share: float = 0.27  # visa-hopping + student-family limits
     policy_student_share: float = 0.16
+    # Backward-compatible aliases used by older call sites
+    baseline_nom_long_run: float = 292_100.0
+    baseline_nom_near_term: float = 292_100.0
+    baseline_student_share: float = 0.34
 
     # --- Housing ---
     avg_household_size_0: float = 2.51

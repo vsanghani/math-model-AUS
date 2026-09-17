@@ -18,17 +18,35 @@ class SimulationRequest(BaseModel):
         le=400_000,
         description="One Nation net overseas migration cap (persons / year).",
     )
-    baseline_nom: float = Field(
-        default=235_000,
+    current_nom: float = Field(
+        default=292_100,
         ge=50_000,
         le=500_000,
-        description="Treasury long-run baseline NOM (persons / year).",
+        description="ABS current NOM, year to March 2026 (status quo).",
     )
-    baseline_nom_near: float = Field(
-        default=255_000,
+    home_affairs_fy_nom: float = Field(
+        default=245_000,
         ge=50_000,
         le=500_000,
-        description="Near-term (2025) Treasury NOM.",
+        description="Home Affairs 2026–27 NOM target (Burke, 17 Sep 2026).",
+    )
+    home_affairs_long_run_nom: float = Field(
+        default=225_000,
+        ge=50_000,
+        le=500_000,
+        description="Home Affairs NOM target from 2027–28.",
+    )
+    home_affairs_student_share: float = Field(
+        default=0.27,
+        ge=0.0,
+        le=0.80,
+        description="Student/temporary share after visa-hopping and family limits.",
+    )
+    home_affairs_skill_tilt: float = Field(
+        default=0.85,
+        ge=0.0,
+        le=1.0,
+        description="Skilled-list tilt toward construction, health and education.",
     )
     sigma: float = Field(default=0.90, gt=0.2, le=3.0, description="K-L CES elasticity.")
     sigma_L: float = Field(
@@ -56,7 +74,7 @@ class SimulationRequest(BaseModel):
     housing_demand_income_elasticity: float = Field(default=0.35, ge=0.0, le=2.0)
     policy_student_share: float = Field(default=0.16, ge=0.0, le=0.80)
 
-    @field_validator("nom_cap", "baseline_nom", "baseline_nom_near")
+    @field_validator("nom_cap", "current_nom", "home_affairs_fy_nom", "home_affairs_long_run_nom")
     @classmethod
     def _finite(cls, v: float) -> float:
         if not (v == v) or v in (float("inf"), float("-inf")):
@@ -145,9 +163,12 @@ class ScenarioSeries(BaseModel):
 
 
 class SimulationResponse(BaseModel):
-    baseline: ScenarioSeries
-    policy: ScenarioSeries
-    deltas_10y: HorizonDelta
-    deltas_25y: HorizonDelta
+    current: ScenarioSeries
+    home_affairs: ScenarioSeries
+    one_nation: ScenarioSeries
+    ha_deltas_10y: HorizonDelta
+    ha_deltas_25y: HorizonDelta
+    on_deltas_10y: HorizonDelta
+    on_deltas_25y: HorizonDelta
     parameters: dict[str, Any]
     notes: str

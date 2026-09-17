@@ -62,7 +62,7 @@ class SectorState:
 
 class SectoralModel:
     def __init__(self, cal: Calibration, housing_supply_elasticity: float | None = None,
-                 income_elasticity: float | None = None):
+                 income_elasticity: float | None = None, skill_priority_tilt: float = 0.0):
         self.cal = cal
         self.eps_s = float(
             housing_supply_elasticity
@@ -74,6 +74,8 @@ class SectoralModel:
             if income_elasticity is not None
             else cal.housing_demand_income_elasticity
         )
+        # 0–1: Home Affairs skilled-list tilt toward construction, health, education
+        self.skill_priority_tilt = float(np.clip(skill_priority_tilt, 0.0, 1.0))
         self.stock = float(cal.housing_stock_0)
         self.rent_index = 1.0
         self.hh_size = float(cal.avg_household_size_0)
@@ -126,14 +128,18 @@ class SectoralModel:
         old_rel = old_share / self._old_share0
         student_rel = student_stock / max(self._student0, 1.0)
 
+        tilt = self.skill_priority_tilt
         raw = {
             "construction_housing": self.base_shares["construction_housing"]
-            * (1.0 + 1.8 * max(shortfall_index, 0.0) + 4.0 * max(pop_g_term, 0.0)),
+            * (1.0 + 1.8 * max(shortfall_index, 0.0) + 4.0 * max(pop_g_term, 0.0))
+            * (1.0 + 0.28 * tilt),
             "healthcare_aged_care": self.base_shares["healthcare_aged_care"]
-            * (0.55 + 0.45 * old_rel),
+            * (0.55 + 0.45 * old_rel)
+            * (1.0 + 0.22 * tilt),
             "education_export_services": self.base_shares["education_export_services"]
-            * (0.40 + 0.60 * student_rel),
-            "general_industry": self.base_shares["general_industry"],
+            * (0.40 + 0.60 * student_rel)
+            * (1.0 - 0.12 * tilt),
+            "general_industry": self.base_shares["general_industry"] * (1.0 - 0.08 * tilt),
         }
         total_raw = sum(raw.values())
         shares = {k: v / total_raw for k, v in raw.items()}

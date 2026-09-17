@@ -50,7 +50,7 @@ function pair(d: HorizonDelta) {
     {
       title: "Δ fiscal position",
       primary: signedAudBn(d.cumulative_fiscal),
-      secondary: `Cumulative budget balance vs baseline · ${d.year} flow ${signedAudBn(d.fiscal_level)}`,
+      secondary: `Cumulative budget balance vs current NOM · ${d.year} flow ${signedAudBn(d.fiscal_level)}`,
       className: tone(d.cumulative_fiscal),
     },
     {
@@ -63,34 +63,45 @@ function pair(d: HorizonDelta) {
 }
 
 export function MetricCards({ data }: { data: SimulationResponse }) {
-  const ten = pair(data.deltas_10y);
-  const twentyFive = pair(data.deltas_25y);
+  const haTen = pair(data.ha_deltas_10y);
+  const ha25 = pair(data.ha_deltas_25y);
+  const on25 = pair(data.on_deltas_25y);
 
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="font-serif text-xl text-navy">Policy minus baseline</h2>
+        <h2 className="font-serif text-xl text-navy">Home Affairs minus current NOM</h2>
         <p className="font-mono text-[10px] uppercase tracking-wider text-stone-500">
           Undiscounted · real 2025 dollars
         </p>
       </div>
       <div>
         <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-stone-500">
-          10-year window · 2025–{data.deltas_10y.year}
+          10-year window · 2025–{data.ha_deltas_10y.year}
         </p>
         <div className="grid gap-px bg-stone-300 sm:grid-cols-2 xl:grid-cols-4">
-          {ten.map((c) => (
-            <Card key={`10-${c.title}`} horizon="10y" {...c} />
+          {haTen.map((c) => (
+            <Card key={`ha10-${c.title}`} horizon="10y" {...c} />
           ))}
         </div>
       </div>
       <div>
         <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-stone-500">
-          25-year window · 2025–{data.deltas_25y.year}
+          25-year window · 2025–{data.ha_deltas_25y.year}
         </p>
         <div className="grid gap-px bg-stone-300 sm:grid-cols-2 xl:grid-cols-4">
-          {twentyFive.map((c) => (
-            <Card key={`25-${c.title}`} horizon="25y" {...c} />
+          {ha25.map((c) => (
+            <Card key={`ha25-${c.title}`} horizon="25y" {...c} />
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-stone-500">
+          One Nation vs current NOM · 25-year window
+        </p>
+        <div className="grid gap-px bg-stone-300 sm:grid-cols-2 xl:grid-cols-4">
+          {on25.map((c) => (
+            <Card key={`on25-${c.title}`} horizon="ON 25y" {...c} />
           ))}
         </div>
       </div>
