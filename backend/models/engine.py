@@ -19,7 +19,6 @@ from models.macro import (
     target_capital,
 )
 from models.sectors import SectoralModel
-from models.temporary import policy_for
 
 
 def scenario_nom(
@@ -77,24 +76,6 @@ def scenario_student_share(
     return out
 
 
-def forced_cut_path(
-    years: np.ndarray,
-    scenario: str,
-    total_cut: float,
-    n_years: int,
-    announce_year: int = 2026,
-) -> np.ndarray:
-    """One Nation 750k temporary-stock rundown, allocated across n_years from the announcement."""
-    out = np.zeros(len(years), dtype=float)
-    if scenario != "one_nation" or n_years <= 0 or total_cut <= 0:
-        return out
-    annual = float(total_cut) / float(n_years)
-    for i, y in enumerate(years):
-        if announce_year <= int(y) < announce_year + n_years:
-            out[i] = annual
-    return out
-
-
 def nom_path(years: np.ndarray, cap: float | None, cal: Calibration,
              near: float, long_run: float) -> np.ndarray:
     """Legacy helper used by older tests: glide or a hard cap."""
@@ -130,14 +111,6 @@ class YearRecord:
     native_pop: float
     migrant_pop: float
     recent_migrant_pop: float
-    temp_resident: float
-    temp_headline: float
-    temp_whm: float
-    temp_skilled: float
-    temp_overstayer: float
-    temp_labour: float
-    temp_forced_exits: float
-    nom_applied: float
     # macro
     gdp: float
     gdp_per_capita: float
@@ -206,14 +179,6 @@ def _record(
         native_pop=demo_m.native_pop,
         migrant_pop=demo_m.migrant_pop,
         recent_migrant_pop=demo_m.recent_migrant_pop,
-        temp_resident=demo_m.temp_resident,
-        temp_headline=demo_m.temp_headline,
-        temp_whm=demo_m.temp_whm,
-        temp_skilled=demo_m.temp_skilled,
-        temp_overstayer=demo_m.temp_overstayer,
-        temp_labour=demo_m.temp_labour,
-        temp_forced_exits=demo_m.temp_forced_exits,
-        nom_applied=demo_m.nom_applied,
         gdp=macro_s.y,
         gdp_per_capita=macro_s.gdp_per_capita,
         capital=macro_s.k,
@@ -282,8 +247,6 @@ class SimulationEngine:
         housing_supply_elasticity: float,
         income_elasticity: float,
         skill_priority_tilt: float = 0.0,
-        temp_scenario: str = "current",
-        forced_cut_path: np.ndarray | None = None,
         start_state: DemographicState | None = None,
     ) -> list[YearRecord]:
         cal = self.cal
@@ -326,7 +289,6 @@ class SimulationEngine:
         prev_wage_index = 1.0
         prev_metrics = self.demo.metrics(state, births=0.0, deaths=0.0, nom=0.0, student_inflow=0.0)
         prev_metrics.year = state.year
-        cuts = forced_cut_path if forced_cut_path is not None else np.zeros(len(years))
 
         for i, year in enumerate(years):
             ld, lm, _pr = self.demo.labour_supply(state)
@@ -348,24 +310,14 @@ class SimulationEngine:
                 pop_growth=pop_growth,
                 wage_index=macro_s.wage_index_avg,
                 labour_total=ld + lm,
-                student_stock=state.temp.student,
+                student_stock=state.student_stock,
                 prev_wage_index=prev_wage_index,
-                temp_resident=state.temp.resident(),
             )
             fis_s = fiscal.evaluate(int(year), state, macro_s.y, macro_s.wage_domestic,
                                     macro_s.wage_migrant, ld, lm)
             rec = _record(m, macro_s, sec_s, fis_s)
-            rec.nom = float(noms[i]) - float(cuts[i])
-            rec.student_inflow = max(rec.nom, 0.0) * float(student_shares[i])
-            rec.student_stock = state.temp.student
-            rec.temp_resident = state.temp.resident()
-            rec.temp_headline = state.temp.headline()
-            rec.temp_whm = state.temp.whm()
-            rec.temp_skilled = state.temp.skilled
-            rec.temp_overstayer = state.temp.overstayer
-            rec.temp_labour = state.temp.labour_units()
-            rec.nom_applied = rec.nom
-            rec.temp_forced_exits = float(cuts[i])
+            rec.nom = float(noms[i])
+            rec.student_inflow = rec.nom * float(student_shares[i])
             records.append(rec)
 
             prev_pop = pop
@@ -375,10 +327,7 @@ class SimulationEngine:
             if i == len(years) - 1:
                 break
             state, prev_metrics = self.demo.step(
-                state,
-                nom=float(noms[i]),
-                student_share=float(student_shares[i]),
-                temp_policy=policy_for(temp_scenario, cal, forced_cut=float(cuts[i])),
+                state, nom=float(noms[i]), student_share=float(student_shares[i])
             )
 
         return records
@@ -403,8 +352,6 @@ class SimulationEngine:
         current_stu = float(o.get("current_student_share", cal.current_student_share))
         ha_stu = float(o.get("home_affairs_student_share", cal.home_affairs_student_share))
         on_stu = float(o.get("policy_student_share", cal.policy_student_share))
-        on_cut = float(o.get("one_nation_temp_cut", cal.one_nation_temp_cut))
-        on_cut_years = int(o.get("one_nation_temp_cut_years", cal.one_nation_temp_cut_years))
         ha_tilt = float(o.get("home_affairs_skill_tilt", 0.85))
 
         years = np.arange(cal.start_year, cal.start_year + cal.horizon_years)
@@ -435,7 +382,6 @@ class SimulationEngine:
             noms=scenario_nom(years, "current", **nom_kw),
             student_shares=scenario_student_share(years, "current", **share_kw),
             skill_priority_tilt=0.0,
-            temp_scenario="current",
             start_state=start,
             **common,
         )
@@ -443,7 +389,6 @@ class SimulationEngine:
             noms=scenario_nom(years, "home_affairs", **nom_kw),
             student_shares=scenario_student_share(years, "home_affairs", **share_kw),
             skill_priority_tilt=ha_tilt,
-            temp_scenario="home_affairs",
             start_state=start,
             **common,
         )
@@ -451,8 +396,6 @@ class SimulationEngine:
             noms=scenario_nom(years, "one_nation", **nom_kw),
             student_shares=scenario_student_share(years, "one_nation", **share_kw),
             skill_priority_tilt=0.0,
-            temp_scenario="one_nation",
-            forced_cut_path=forced_cut_path(years, "one_nation", on_cut, on_cut_years),
             start_state=start,
             **common,
         )
@@ -480,8 +423,6 @@ class SimulationEngine:
                 "home_affairs_student_share": ha_stu,
                 "policy_student_share": on_stu,
                 "home_affairs_skill_tilt": ha_tilt,
-                "one_nation_temp_cut": on_cut,
-                "one_nation_temp_cut_years": on_cut_years,
                 "start_year": cal.start_year,
                 "end_year": cal.start_year + cal.horizon_years - 1,
             },
@@ -525,6 +466,4 @@ def horizon_delta(baseline: list[YearRecord], policy: list[YearRecord],
         "rent_index_pct": (p.rent_index / b.rent_index - 1.0) * 100.0,
         "dependency_ratio_pp": (p.dependency_ratio - b.dependency_ratio) * 100.0,
         "population": p.population - b.population,
-        "temp_resident": p.temp_resident - b.temp_resident,
-        "temp_headline": p.temp_headline - b.temp_headline,
     }

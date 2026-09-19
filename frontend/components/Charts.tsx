@@ -77,16 +77,6 @@ export function ComparisonCharts({ data }: { data: SimulationResponse }) {
     "One Nation": o.nom / 1000,
   }));
 
-  const temps = rows.map(({ year, c, h, o }) => ({
-    year,
-    "Current headline": c.temp_headline / 1e6,
-    "Home Affairs headline": h.temp_headline / 1e6,
-    "One Nation headline": o.temp_headline / 1e6,
-    "Current resident": c.temp_resident / 1e6,
-    "Home Affairs resident": h.temp_resident / 1e6,
-    "One Nation resident": o.temp_resident / 1e6,
-  }));
-
   const gdp = rows.map(({ year, c, h, o }) => ({
     year,
     "Current GDP": c.gdp / 1e9,
@@ -135,7 +125,7 @@ export function ComparisonCharts({ data }: { data: SimulationResponse }) {
 
       <ChartFrame
         title="Net overseas migration"
-        caption="Thousands of persons per year, effective flow into the population. One Nation’s 750k temporary-stock rundown is extra net outflow for three years, so NOM can go negative."
+        caption="Thousands of persons per year. 2025 is the shared pre-announcement rate; Burke’s targets bind from 2026."
       >
         <ResponsiveContainer>
           <LineChart data={nom} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -147,27 +137,6 @@ export function ComparisonCharts({ data }: { data: SimulationResponse }) {
             <Line type="stepAfter" dataKey="Current NOM" stroke={NAVY} dot={false} strokeWidth={1.8} />
             <Line type="stepAfter" dataKey="Home Affairs" stroke={MOSS} dot={false} strokeWidth={1.8} />
             <Line type="stepAfter" dataKey="One Nation" stroke={OCHRE} dot={false} strokeWidth={1.8} />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartFrame>
-
-      <ChartFrame
-        title="Temporary visa stock"
-        caption="Millions. Headline is the political ~3 million (resident temporaries plus NZ special-category and short-stay visitors). Resident stock is the usual-resident slice that works and rents."
-      >
-        <ResponsiveContainer>
-          <LineChart data={temps} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="#e7e5e4" vertical={false} />
-            <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v.toFixed(1)}m`} />
-            <Tooltip contentStyle={tooltipStyle()} formatter={(v: number) => [`${v.toFixed(2)} m`, ""]} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Line type="monotone" dataKey="Current headline" stroke={NAVY} dot={false} strokeWidth={1.8} />
-            <Line type="monotone" dataKey="Home Affairs headline" stroke={MOSS} dot={false} strokeWidth={1.8} />
-            <Line type="monotone" dataKey="One Nation headline" stroke={OCHRE} dot={false} strokeWidth={1.8} />
-            <Line type="monotone" dataKey="Current resident" stroke={NAVY} dot={false} strokeDasharray="4 3" strokeWidth={1.3} />
-            <Line type="monotone" dataKey="Home Affairs resident" stroke={MOSS} dot={false} strokeDasharray="4 3" strokeWidth={1.3} />
-            <Line type="monotone" dataKey="One Nation resident" stroke={OCHRE} dot={false} strokeDasharray="4 3" strokeWidth={1.3} />
           </LineChart>
         </ResponsiveContainer>
       </ChartFrame>

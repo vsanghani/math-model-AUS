@@ -58,7 +58,6 @@ class SectorState:
     education_exports: float
     student_stock: float
     completions: float
-    temp_resident: float
 
 
 class SectoralModel:
@@ -95,7 +94,6 @@ class SectoralModel:
         labour_total: float,
         student_stock: float,
         prev_wage_index: float,
-        temp_resident: float = 0.0,
     ) -> SectorState:
         if self._old_share0 is None:
             self._old_share0 = max(old_share, 1e-6)
@@ -103,10 +101,7 @@ class SectoralModel:
         # Household size drifts slowly (ABS long-run decline)
         self.hh_size = max(self.hh_size + self.cal.hh_size_drift, 1.8)
         dw = wage_index / max(prev_wage_index, 1e-8) - 1.0
-        temp_n = min(max(float(temp_resident), 0.0), population)
-        perm_n = max(population - temp_n, 0.0)
-        hh_temp = max(self.cal.hh_size_temporary, 1.5)
-        h_demand = (perm_n / self.hh_size + temp_n / hh_temp) * (1.0 + self.eps_h * dw)
+        h_demand = (population / self.hh_size) * (1.0 + self.eps_h * dw)
 
         # Completions respond to last period's rent gap and population growth.
         # Near-term supply is inelastic: ε_s << 1.
@@ -179,5 +174,4 @@ class SectoralModel:
             education_exports=education_exports,
             student_stock=float(student_stock),
             completions=float(completions),
-            temp_resident=float(temp_n),
         )

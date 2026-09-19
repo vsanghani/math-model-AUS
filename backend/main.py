@@ -23,11 +23,9 @@ NOTES = (
     "ballot (45,000 second-year / 5,000 third-year places), limits on student "
     "dependants and visa-hopping, overstayer compliance, and a skilled-list "
     "tilt toward construction, healthcare, education, enforcement and primary "
-    "industries.  Temporary visa stocks (students, working-holiday, TSS, "
-    "graduates, overstayers) enter labour supply and housing occupancy; One Nation "
-    "runs the stock down by 750,000 over three years, which can push effective "
-    "NOM negative.  New migrants face an 8-year wait for Age Pension and other "
-    "personal transfers."
+    "industries.  One Nation remains a 130,000 net cap with a deeper student "
+    "cut.  New migrants face an 8-year wait for Age Pension and other personal "
+    "transfers."
 )
 
 app = FastAPI(
