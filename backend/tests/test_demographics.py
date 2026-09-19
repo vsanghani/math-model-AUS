@@ -44,7 +44,7 @@ def test_cohort_identity_with_mortality_births_and_nom():
     nom = 130_000.0
     nxt, metrics = model.step(state, nom=nom, student_share=0.20)
     residual = conservation_residual(
-        before, nxt.total(), metrics.births, metrics.deaths, metrics.nom
+        before, nxt.total(), metrics.births, metrics.deaths, metrics.nom_applied
     )
     assert abs(residual) < 1.0  # within one person (float drift)
     assert metrics.deaths > 0

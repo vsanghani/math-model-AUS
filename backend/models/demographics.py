@@ -42,6 +42,13 @@ from models.calibration import (
     participation_by_age_sex,
     split_native_migrant,
 )
+from models.temporary import (
+    TemporaryModel,
+    TemporaryPolicy,
+    TemporaryStock,
+    initial_temporary_stock,
+    policy_for,
+)
 
 
 @dataclass
@@ -53,6 +60,7 @@ class DemographicState:
     settled: np.ndarray  # (2, 101) foreign-born, resident >= 8 years
     recent: np.ndarray  # (8, 2, 101) vintages 0..7 years since arrival
     student_stock: float
+    temp: TemporaryStock
 
     def total(self) -> np.ndarray:
         return self.native + self.settled + self.recent.sum(axis=0)
@@ -67,6 +75,7 @@ class DemographicState:
             settled=self.settled.copy(),
             recent=self.recent.copy(),
             student_stock=float(self.student_stock),
+            temp=self.temp.copy(),
         )
 
 
@@ -93,6 +102,14 @@ class DemographicMetrics:
     migrant_pop: float
     recent_migrant_pop: float
     recent_pension_age: float
+    temp_resident: float
+    temp_headline: float
+    temp_whm: float
+    temp_skilled: float
+    temp_overstayer: float
+    temp_labour: float
+    temp_forced_exits: float
+    nom_applied: float
 
 
 def _survive(stock: np.ndarray, surv: np.ndarray) -> np.ndarray:
@@ -115,6 +132,7 @@ class CohortComponentModel:
         self.perm_profile = nom_age_sex_profile("permanent")
         self.student_profile = nom_age_sex_profile("student")
         self.male_birth_frac = cal.sex_ratio_at_birth / (1.0 + cal.sex_ratio_at_birth)
+        self.temp_model = TemporaryModel(cal)
 
     def initial_state(self) -> DemographicState:
         pop = initial_population(self.cal)
@@ -131,12 +149,14 @@ class CohortComponentModel:
             recent[k] = recent_total * weights[k]
         settled = migrant - recent_total
         settled = np.clip(settled, 0.0, None)
+        temp = initial_temporary_stock(self.cal)
         return DemographicState(
             year=self.cal.start_year,
             native=native,
             settled=settled,
             recent=recent,
-            student_stock=self.cal.student_stock_0,
+            student_stock=temp.student,
+            temp=temp,
         )
 
     def nom_profile(self, student_share: float) -> np.ndarray:
@@ -153,18 +173,27 @@ class CohortComponentModel:
         return out, n_births
 
     def labour_supply(self, state: DemographicState) -> tuple[float, float, float]:
-        """Return (L_domestic, L_migrant, participation rate among 15+)."""
+        """Return (L_domestic, L_migrant, participation rate among 15+).
+
+        Migrant labour replaces a uniform participation slice with visa-class
+        rates for the resident temporary stock (students vs WHM vs TSS).
+        """
         native = state.native
         migrant = state.foreign_born()
         ld = float((native * self.part).sum())
-        lm = float((migrant * self.part).sum())
+        lm_uniform = float((migrant * self.part).sum())
+        temp_n = min(state.temp.resident(), float(migrant.sum()))
+        avg_part = float(self.part[:, 20:55].mean())
+        lm = lm_uniform - temp_n * avg_part + state.temp.labour_units()
+        lm = max(lm, 0.0)
         pop_15plus = float(state.total()[:, 15:].sum())
         lf = ld + lm
         pr = lf / pop_15plus if pop_15plus > 0 else 0.0
         return ld, lm, pr
 
     def metrics(self, state: DemographicState, births: float, deaths: float, nom: float,
-                student_inflow: float) -> DemographicMetrics:
+                student_inflow: float, temp_forced_exits: float = 0.0,
+                nom_applied: float | None = None) -> DemographicMetrics:
         tot = state.total()
         n = float(tot.sum())
         wa = float(tot[:, WORKING_AGE].sum())
@@ -173,6 +202,7 @@ class CohortComponentModel:
         pension = float(tot[:, PENSION_AGE:].sum())
         recent_tot = state.recent.sum(axis=0)
         ld, lm, pr = self.labour_supply(state)
+        applied = float(nom if nom_applied is None else nom_applied)
         return DemographicMetrics(
             year=state.year,
             population=n,
@@ -180,7 +210,7 @@ class CohortComponentModel:
             deaths=deaths,
             nom=nom,
             student_inflow=student_inflow,
-            student_stock=state.student_stock,
+            student_stock=state.temp.student,
             working_age=wa,
             old_age=old,
             prime_age=prime,
@@ -195,6 +225,14 @@ class CohortComponentModel:
             migrant_pop=float(state.foreign_born().sum()),
             recent_migrant_pop=float(recent_tot.sum()),
             recent_pension_age=float(recent_tot[:, PENSION_AGE:].sum()),
+            temp_resident=state.temp.resident(),
+            temp_headline=state.temp.headline(),
+            temp_whm=state.temp.whm(),
+            temp_skilled=state.temp.skilled,
+            temp_overstayer=state.temp.overstayer,
+            temp_labour=state.temp.labour_units(),
+            temp_forced_exits=float(temp_forced_exits),
+            nom_applied=applied,
         )
 
     def step(
@@ -205,10 +243,18 @@ class CohortComponentModel:
         qx: np.ndarray | None = None,
         asfr: np.ndarray | None = None,
         apply_births: bool = True,
+        temp_policy: TemporaryPolicy | None = None,
     ) -> tuple[DemographicState, DemographicMetrics]:
-        """Advance one year.  Births are Australian-born; NOM enters vintage 0."""
+        """Advance one year.  Births are Australian-born; NOM enters vintage 0.
+
+        ``nom`` is the headline flow target.  One Nation forced temporary
+        exits are subtracted so the pyramid receives the effective net.
+        """
         surv = (1.0 - qx) if qx is not None else self.surv
         asfr_use = asfr if asfr is not None else self.asfr
+        policy = temp_policy if temp_policy is not None else policy_for("current", self.cal)
+        new_temp, temp_rep = self.temp_model.step(state.temp, nom, student_share, policy)
+        nom_applied = float(nom) - float(temp_rep.forced_exits)
 
         pre = state.total()
         native_s = _survive(state.native, surv)
@@ -219,7 +265,6 @@ class CohortComponentModel:
 
         n_births = 0.0
         if apply_births:
-            # Fertility uses beginning-of-interval females (pre-migration)
             females_pre = pre[FEMALE]
             n_births = float((females_pre[FERTILE] * asfr_use[FERTILE]).sum())
             births_arr = np.zeros((SEXES, N_AGES), dtype=float)
@@ -227,29 +272,30 @@ class CohortComponentModel:
             births_arr[FEMALE, 0] = n_births * (1.0 - self.male_birth_frac)
             native_s = native_s + births_arr
 
-        # Vintage ladder: 7 -> settled, k -> k+1, 0 filled by this year's NOM
         new_settled = settled_s + recent_s[WAITING_YEARS - 1]
         new_recent = np.zeros_like(recent_s)
         new_recent[1:] = recent_s[:-1]
 
         profile = self.nom_profile(student_share)
-        migrants = nom * profile
-        new_recent[0] = migrants
-
-        # Student stock: inflow plus geometric duration decay
-        student_inflow = max(0.0, float(nom) * float(np.clip(student_share, 0.0, 1.0)))
-        decay = 1.0 / max(self.cal.student_duration_years, 0.5)
-        new_students = (1.0 - decay) * state.student_stock + student_inflow
+        new_recent[0] = nom_applied * profile
 
         nxt = DemographicState(
             year=state.year + 1,
             native=native_s,
             settled=new_settled,
             recent=new_recent,
-            student_stock=new_students,
+            student_stock=new_temp.student,
+            temp=new_temp,
         )
-        # Metrics for the *new* year after the transition
-        metrics = self.metrics(nxt, n_births, deaths, float(nom), student_inflow)
+        metrics = self.metrics(
+            nxt,
+            n_births,
+            deaths,
+            float(nom),
+            temp_rep.student_inflow,
+            temp_forced_exits=temp_rep.forced_exits,
+            nom_applied=nom_applied,
+        )
         metrics.year = nxt.year
         return nxt, metrics
 

@@ -103,6 +103,7 @@ export function Dashboard() {
                   <li>Working-holiday ballot: 45,000 second-year and 5,000 third-year places (from 57,000 / 31,000).</li>
                   <li>Student dependants restricted; visa-hopping curtailed.</li>
                   <li>Overstayer detention and removals; visitor visas “no further stay”.</li>
+                  <li>Temporary stock is now in the model: WHM ballot, student duration, overstayers, and One Nation’s 750k rundown.</li>
                   <li>Skilled list priority: construction, health, education, enforcement, defence, agriculture.</li>
                   <li>Delivered by ministerial direction after Coalition talks collapsed.</li>
                 </ul>

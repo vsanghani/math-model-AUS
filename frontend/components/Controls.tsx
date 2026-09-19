@@ -125,6 +125,10 @@ export function Controls({
           <dt>One Nation cap</dt>
           <dd className="text-ink">{Math.round(params.nom_cap / 1000)}k</dd>
         </div>
+        <div>
+          <dt>ON temp cut</dt>
+          <dd className="text-ink">{Math.round(params.one_nation_temp_cut / 1000)}k</dd>
+        </div>
       </dl>
     </div>
   );

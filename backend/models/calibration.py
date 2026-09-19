@@ -82,6 +82,31 @@ class Calibration:
     student_duration_years: float = 2.8
     spend_per_student: float = 62_000.0  # tuition + living, AUD
 
+    # --- Temporary visa stocks (onshore, stylised Home Affairs orders of magnitude) ---
+    # Resident temporaries sit inside the usual-resident population.  NZ SCTV and
+    # short-stay visitors make up the political "3 million temporary visas" headline
+    # but are not all equivalent for labour or NOM.
+    whm_y1_0: float = 70_000.0
+    whm_y2_0: float = 57_000.0
+    whm_y3_0: float = 31_000.0
+    skilled_temp_0: float = 280_000.0
+    graduate_0: float = 220_000.0
+    overstayer_0: float = 77_000.0
+    other_temp_0: float = 485_000.0  # bridging and long-stay visitors in usual residence
+    nz_sctv_0: float = 650_000.0
+    short_stay_0: float = 350_000.0
+    whm_y1_inflow_0: float = 70_000.0
+    skilled_temp_inflow_0: float = 95_000.0
+    graduate_inflow_0: float = 90_000.0
+    other_temp_inflow_0: float = 160_000.0
+    hh_size_temporary: float = 3.15  # denser share-housing than permanents
+    one_nation_temp_cut: float = 750_000.0  # stock rundown over three years
+    one_nation_temp_cut_years: int = 3
+    ha_whm_y2_cap: float = 45_000.0
+    ha_whm_y3_cap: float = 5_000.0
+    ha_student_duration: float = 2.20
+    ha_overstayer_removal: float = 0.38
+
     # --- Fiscal ---
     pit_rate: float = 0.225
     cit_rate: float = 0.30

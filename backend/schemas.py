@@ -73,6 +73,12 @@ class SimulationRequest(BaseModel):
     )
     housing_demand_income_elasticity: float = Field(default=0.35, ge=0.0, le=2.0)
     policy_student_share: float = Field(default=0.16, ge=0.0, le=0.80)
+    one_nation_temp_cut: float = Field(
+        default=750_000,
+        ge=0.0,
+        le=2_000_000,
+        description="One Nation temporary-visa stock rundown (persons, over three years).",
+    )
 
     @field_validator("nom_cap", "current_nom", "home_affairs_fy_nom", "home_affairs_long_run_nom")
     @classmethod
@@ -139,6 +145,14 @@ class YearPoint(BaseModel):
     fiscal_balance_to_gdp: float
     consumption: float
     waiting_excluded_pensioners: float
+    temp_resident: float
+    temp_headline: float
+    temp_whm: float
+    temp_skilled: float
+    temp_overstayer: float
+    temp_labour: float
+    temp_forced_exits: float
+    nom_applied: float
 
 
 class HorizonDelta(BaseModel):
@@ -155,6 +169,8 @@ class HorizonDelta(BaseModel):
     rent_index_pct: float
     dependency_ratio_pp: float
     population: float
+    temp_resident: float
+    temp_headline: float
 
 
 class ScenarioSeries(BaseModel):

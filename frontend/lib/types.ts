@@ -15,6 +15,7 @@ export type SimulationParams = {
   housing_supply_elasticity: number;
   housing_demand_income_elasticity: number;
   policy_student_share: number;
+  one_nation_temp_cut: number;
 };
 
 export type YearPoint = {
@@ -48,6 +49,14 @@ export type YearPoint = {
   fiscal_balance_to_gdp: number;
   revenue: number;
   outlays: number;
+  temp_resident: number;
+  temp_headline: number;
+  temp_whm: number;
+  temp_skilled: number;
+  temp_overstayer: number;
+  temp_labour: number;
+  temp_forced_exits: number;
+  nom_applied: number;
 };
 
 export type HorizonDelta = {
@@ -64,6 +73,8 @@ export type HorizonDelta = {
   rent_index_pct: number;
   dependency_ratio_pp: number;
   population: number;
+  temp_resident: number;
+  temp_headline: number;
 };
 
 export type ScenarioSeries = {
@@ -100,4 +111,5 @@ export const DEFAULT_PARAMS: SimulationParams = {
   housing_supply_elasticity: 0.3,
   housing_demand_income_elasticity: 0.35,
   policy_student_share: 0.16,
+  one_nation_temp_cut: 750_000,
 };
